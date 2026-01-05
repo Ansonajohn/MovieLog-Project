@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MovieLog</title>
+    <style>
+        /* --- BACKGROUND --- */
+        body { 
+            font-family: 'Segoe UI', sans-serif; color: white; margin: 0; padding: 20px; min-height: 100vh;
+            background: url('https://cdn.wallpapersafari.com/24/79/GDIQyY.jpg') no-repeat center center fixed; 
+            background-size: cover; position: relative;
+        }
+        body::before {
+            content: ""; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85); z-index: -1; backdrop-filter: blur(2px);
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        h1 { margin: 0; color: #e50914; font-size: 32px; text-shadow: 2px 2px 4px black; }
+        
+        button { padding: 10px 15px; background: #e50914; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #ff0f1f; transform: translateY(-2px); }
+        .btn-outline { background: rgba(0,0,0,0.5); border: 2px solid #555; color: #ccc; text-decoration:none; padding:8px 15px; border-radius:4px; }
+        .btn-watchlist { background: #2196F3; } 
+        .btn-move { background: #4CAF50; margin-top: 5px; font-size: 0.8em; width: 100%; }
+
+        .box { background: rgba(20, 20, 20, 0.95); padding: 25px; margin-bottom: 25px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.7); border: 1px solid #333; }
+        .input-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        input, select { padding: 12px; background: #2b2b2b; border: 1px solid #444; color: white; border-radius: 4px; flex-grow: 1; }
+        h2.section-title { border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 40px; color: #ddd; }
+
+        /* --- CLEAN CARD DESIGN --- */
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .card { 
+            background: #1a1a1a; border-radius: 8px; overflow: hidden; transition: transform 0.3s; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5); display: flex; flex-direction: column; border: 1px solid #333;
+            cursor: pointer; position: relative;
+        }
+        .card:hover { transform: scale(1.05); border-color: #eee; z-index: 10; }
+        .poster { width: 100%; height: 300px; object-fit: cover; }
+        
+        .card-overlay {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(to top, black, transparent);
+            padding: 15px; padding-top: 40px;
+        }
+        .card h4 { margin: 0; color: white; font-size: 1.1em; text-shadow: 1px 1px 3px black; }
+        .card-genre { font-size: 0.8em; color: #ddd; }
+
+        .actions { padding: 5px; background: #141414; display: flex; gap: 5px; }
+        .delete-btn { background: #333; font-size: 0.8em; flex-grow: 1; }
+        .delete-btn:hover { background: #c00; }
+
+        /* --- POPUP MODAL --- */
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.9); justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background-color: #1f1f1f; padding: 30px; border-radius: 12px;
+            max-width: 500px; width: 90%; position: relative;
+            text-align: center; border: 1px solid #444; box-shadow: 0 0 50px rgba(229, 9, 20, 0.3);
+        }
+        .close-btn { position: absolute; top: 10px; right: 20px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .modal-poster { height: 200px; border-radius: 8px; margin-bottom: 15px; }
+        .modal-plot { color: #ccc; font-size: 0.95em; line-height: 1.6; margin: 15px 0; text-align: left; }
+        .trailer-btn { 
+            display: inline-block; background: #ff0000; color: white; padding: 12px 25px; 
+            text-decoration: none; border-radius: 50px; font-weight: bold; margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🎬 MovieLog</h1>
+        <a href="logout.php" class="btn-outline">Sign Out</a>
+    </div>
+
+    <div class="box">
+        <h3 style="margin-top:0">✨ Add Content</h3>
+        <div class="input-group">
+            <input type="text" id="title" placeholder="Movie Title (e.g. Avatar)">
+            <select id="genre" style="max-width: 150px;">
+                <option value="Action">Action</option>
+                <option value="Comedy">Comedy</option>
+                <option value="Sci-Fi">Sci-Fi</option>
+                <option value="Drama">Drama</option>
+                <option value="Horror">Horror</option>
+            </select>
+            <input type="number" id="rating" placeholder="Rate (1-10)" style="max-width: 100px;">
+            <button onclick="fetchAndSave('watchlist')" class="btn-watchlist">📺 Add to Watchlist</button>
+            <button onclick="fetchAndSave('watched')">✅ Save to Library</button>
+        </div>
+    </div>
+
+    <div style="text-align: right; margin-bottom: 20px;">
+        <select id="filterGenre" onchange="refreshAll()" style="max-width: 150px; padding: 8px;">
+            <option value="All">All Genres</option>
+            <option value="Action">Action</option>
+            <option value="Comedy">Comedy</option>
+            <option value="Drama">Drama</option>
+            <option value="Horror">Horror</option>
+        </select>
+     </div>
+
+    <h2 class="section-title">📺 Watchlist</h2>
+    <div id="watchlist-results" class="grid-container"></div>
+    <p id="watchlist-empty" style="color:#666; display:none">Empty.</p>
+
+    <h2 class="section-title">🎬 Watched Library</h2>
+    <div id="library-results" class="grid-container"></div>
+    <p id="library-empty" style="color:#666; display:none">Empty.</p>
+</div>
+
+<div id="movieModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <img id="m-poster" class="modal-poster" src="">
+        <h2 id="m-title" style="margin:0; color:#e50914;"></h2>
+        <p style="color:#888; margin:5px 0;">Genre: <span id="m-genre"></span> | Rating: <span id="m-rating" style="color:gold;"></span></p>
+        <hr style="border-color:#333;">
+        <p id="m-plot" class="modal-plot"></p>
+        <a id="m-trailer" href="#" target="_blank" class="trailer-btn">▶ Watch Trailer on YouTube</a>
+    </div>
+</div>
+
+<script>
+    const apiKey = "11f57732"; 
+    let allMovies = []; 
+
+    fetch('auth.php').then(res => res.json()).then(data => {
+        if(!data.loggedIn) window.location.href = "login.php";
+    });
+
+    function openModal(id) {
+        let movie = allMovies.find(m => m.id == id);
+        if(!movie) return;
+        document.getElementById('m-title').innerText = movie.title;
+        document.getElementById('m-poster').src = movie.poster;
+        document.getElementById('m-genre').innerText = movie.genre;
+        document.getElementById('m-rating').innerText = (movie.rating > 0) ? `★ ${movie.rating}` : "N/A";
+        document.getElementById('m-plot').innerText = (movie.plot && movie.plot !== "N/A") ? movie.plot : "No description available.";
+        let youtubeLink = `https://www.youtube.com/results?search_query=${encodeURIComponent(movie.title + " trailer")}`;
+        document.getElementById('m-trailer').href = youtubeLink;
+        document.getElementById('movieModal').style.display = "flex";
+    }
+
+    function closeModal() { document.getElementById('movieModal').style.display = "none"; }
+    window.onclick = function(event) { if (event.target == document.getElementById('movieModal')) closeModal(); }
+
+    async function fetchAndSave(targetStatus) {
+        let title = document.getElementById('title').value;
+        let genre = document.getElementById('genre').value;
+        let ratingVal = document.getElementById('rating').value;
+        let rating = (targetStatus === 'watchlist' && ratingVal === "") ? 0 : ratingVal;
+
+        if(!title) { alert("Enter title!"); return; }
+
+        try {
+            let omdbRes = await fetch(`https://www.omdbapi.com/?t=${title}&apikey=${apiKey}`);
+            let omdbData = await omdbRes.json();
+            if (omdbData.Response === "False") { alert("Not found!"); return; }
+
+            let saveRes = await fetch('api.php', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    title, genre, rating, 
+                    poster: (omdbData.Poster !== "N/A") ? omdbData.Poster : "", 
+                    plot: omdbData.Plot, 
+                    status: targetStatus 
+                })
+            });
+            let result = await saveRes.json();
+            alert(result.message);
+            document.getElementById('title').value = ""; 
+            refreshAll();
+        } catch (error) { console.error(error); }
+    }
+
+    async function moveToLibrary(id) {
+        event.stopPropagation();
+        await fetch(`api.php?action=move&id=${id}`);
+        refreshAll();
+    }
+
+    async function deleteMovie(id) {
+        event.stopPropagation();
+        if(!confirm("Delete?")) return;
+        await fetch(`api.php?id=${id}`, { method: 'DELETE' });
+        refreshAll();
+    }
+
+    async function refreshAll() {
+        let genre = document.getElementById('filterGenre').value;
+        let res1 = await fetch(`api.php?status=watchlist&genre=${genre}`);
+        let movies1 = await res1.json();
+        let res2 = await fetch(`api.php?status=watched&genre=${genre}`);
+        let movies2 = await res2.json();
+
+        allMovies = [...movies1, ...movies2];
+        renderList('watchlist', movies1);
+        renderList('watched', movies2);
+    }
+
+    function renderList(status, movies) {
+        let container = document.getElementById(status === 'watchlist' ? 'watchlist-results' : 'library-results');
+        let emptyMsg = document.getElementById(status === 'watchlist' ? 'watchlist-empty' : 'library-empty');
+        container.innerHTML = "";
+        emptyMsg.style.display = (movies.length === 0) ? "block" : "none";
+
+        movies.forEach(m => {
+            let imgUrl = (m.poster && m.poster.length > 5) ? m.poster : "https://via.placeholder.com/200x300?text=No+Img";
+            let moveBtn = (status === 'watchlist') ? `<button class="btn-move" onclick="moveToLibrary(${m.id})">✅ Mark Watched</button>` : '';
+            
+            container.innerHTML += `
+                <div class="card" onclick="openModal(${m.id})">
+                    <img src="${imgUrl}" class="poster">
+                    <div class="card-overlay">
+                        <h4>${m.title}</h4>
+                        <span class="card-genre">${m.genre}</span>
+                    </div>
+                    <div class="actions">
+                        ${moveBtn}
+                        <button class="delete-btn" onclick="deleteMovie(${m.id})">🗑</button>
+                    </div>
+                </div>`;
+        });
+    }
+    refreshAll();
+</script>
+</body>
+</html>
